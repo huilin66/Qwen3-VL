@@ -1,0 +1,7 @@
+*.txt
+*.json
+*.jsonl
+*.csv
+
+=4.0
+events.*
