@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 # =========================
 
 JSON_DIR = Path("./results")
-IMAGE_DIR = Path("/scrinvme/huilin/IB/20260812_lands")
+IMAGE_DIR = Path("/scrinvme/huilin/IB/20260812_lands/image")
 OUTPUT_DIR = Path("./vis")
 
 # Qwen 输出 bbox 的坐标范围

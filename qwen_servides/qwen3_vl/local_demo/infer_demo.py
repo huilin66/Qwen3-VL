@@ -358,7 +358,7 @@ def main():
     parser.add_argument(
         "--image",
         type=str,
-        default=r"/scrinvme/huilin/IB/20260812_lands",
+        default=r"/scrinvme/huilin/IB/20260812_lands/image",
         help="单张图片或图片文件夹",
     )
 
