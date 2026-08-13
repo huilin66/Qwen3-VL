@@ -6,3 +6,14 @@
 =4.0
 events.*
 output/
+
+*.png
+*.jpg
+*.jpeg
+*.tif
+
+results/
+vis/
+
+*.pyc
+__pycache__
