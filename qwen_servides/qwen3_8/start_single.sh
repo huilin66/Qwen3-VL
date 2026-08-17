@@ -1,115 +1,70 @@
 #!/usr/bin/env bash
 
-# ============================================================
-# Qwen3.8-27B-FP8
-# Single RTX 6000 Ada 48GB
-# Text + Image + Reasoning + Tool Calling
-# ============================================================
-
-# conda activate 前不要开启 -u，
-# 否则 conda hook 可能因为未定义变量报错。
 set -eo pipefail
 
-
 # ============================================================
-# Conda 环境
+# Conda
 # ============================================================
 
 source /apps/miniconda3/etc/profile.d/conda.sh
-conda activate qwen
+conda activate qwen38
 
-# Conda 激活完成后再开启 nounset
 set -u
 
 
 # ============================================================
-# CUDA 配置
+# GPU
 # ============================================================
 
-# 当前 qwen 环境中已安装 CUDA 12.8 nvcc
-export CUDA_HOME="${CONDA_PREFIX}"
-
-# 保证优先使用 Conda CUDA 12.8
-export PATH="${CONDA_PREFIX}/bin:${PATH}"
-
-# 显式指定 CUDA 编译器
-export CUDACXX="${CONDA_PREFIX}/bin/nvcc"
-export CUDA_NVCC_EXECUTABLE="${CONDA_PREFIX}/bin/nvcc"
-
-# CUDA runtime / Conda libraries
-export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${CONDA_PREFIX}/lib64:${LD_LIBRARY_PATH:-}"
-
-
-# ============================================================
-# GPU 配置
-# ============================================================
-
-# 使用物理 GPU 1
 export CUDA_VISIBLE_DEVICES=1
-
 export TOKENIZERS_PARALLELISM=false
-
+export VLLM_USE_FLASHINFER_SAMPLER=0
 
 # ============================================================
-# 服务配置
+# Model
 # ============================================================
 
 MODEL="Qwen/Qwen3.8-27B-FP8"
-
 SERVED_MODEL_NAME="qwen3.8-27b-fp8"
 
 PORT=8010
-
-# 允许读取本地图片
 MEDIA_ROOT="/scrinvme/huilin"
 
 
 # ============================================================
-# 环境检查
+# Environment
 # ============================================================
 
 echo "============================================================"
-echo "Qwen3.8-27B-FP8 Deployment"
+echo "Qwen3.8-27B-FP8 / vLLM 0.26.0"
 echo "============================================================"
-
 echo "CONDA_PREFIX : ${CONDA_PREFIX}"
-echo "CUDA_HOME    : ${CUDA_HOME}"
-echo "NVCC         : $(which nvcc)"
+echo "Python       : $(which python)"
+echo "vLLM         : $(which vllm)"
 echo "GPU          : ${CUDA_VISIBLE_DEVICES}"
 echo "MODEL        : ${MODEL}"
 echo "PORT         : ${PORT}"
-echo "MEDIA_ROOT   : ${MEDIA_ROOT}"
+echo "============================================================"
+
+python - <<'PY'
+import torch
+import vllm
+
+print("torch       :", torch.__version__)
+print("torch CUDA  :", torch.version.cuda)
+print("vLLM        :", vllm.__version__)
+print("CUDA        :", torch.cuda.is_available())
+
+if torch.cuda.is_available():
+    print("GPU         :", torch.cuda.get_device_name())
+    print("Capability  :", torch.cuda.get_device_capability())
+PY
 
 echo "============================================================"
 
-nvcc --version
-
-echo "============================================================"
-
 
 # ============================================================
-# 检查 nvcc
-# ============================================================
-
-NVCC_PATH="$(which nvcc)"
-
-EXPECTED_NVCC="${CONDA_PREFIX}/bin/nvcc"
-
-if [[ "${NVCC_PATH}" != "${EXPECTED_NVCC}" ]]; then
-    echo "ERROR: Wrong nvcc detected."
-    echo
-    echo "Current:"
-    echo "  ${NVCC_PATH}"
-    echo
-    echo "Expected:"
-    echo "  ${EXPECTED_NVCC}"
-    echo
-    exit 1
-fi
-
-
-# ============================================================
-# 启动 vLLM
+# Start server
 # ============================================================
 
 exec vllm serve "${MODEL}" \
@@ -119,15 +74,13 @@ exec vllm serve "${MODEL}" \
   --tensor-parallel-size 1 \
   --dtype auto \
   --max-model-len 8192 \
-  --max-num-seqs 1 \
+  --max-num-seqs 4 \
   --gpu-memory-utilization 0.90 \
-  --attention-backend TRITON_ATTN \
-  --enforce-eager \
   --limit-mm-per-prompt '{"image":1,"video":0}' \
   --reasoning-parser qwen3 \
-  --enable-auto-tool-choice \
-  --tool-call-parser qwen3_coder \
+  --default-chat-template-kwargs '{"enable_thinking":false}' \
   --allowed-local-media-path "${MEDIA_ROOT}" \
+  --generation-config vllm \
   --seed 0 \
   --disable-log-stats \
-  --api-key "qwenL666666qB9pM8yVZx2Kf7R4hN1uCe6Wsd3AjT0mGkPqX"
+  --api-key ""
